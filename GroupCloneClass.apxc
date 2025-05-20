@@ -1,0 +1,107 @@
+public without sharing class GroupCloneClass 
+{
+	Public static void CloneGroup(Integer totalGroup,String quoteId)
+    {
+         SBQQ.TriggerControl.disable();
+        QuoteModel quoteModel = GroupCloneClass.getQuoteModel(quoteId);
+        
+        List<QuoteLineModel> totalLineModels = quoteModel.lineItems;
+        
+       // System.debug('THis is the QuoteLine Group Models ---> ' + quoteModel.lineItemGroups);
+       // System.debug('This is the QuoteLineModels ------> ' + totalLineModels);
+        
+        List<QuoteLineGroupModel> grpModelList = GroupCloneClass.createQuoteLineGroups(quoteId,totalGroup);
+      //  System.debug('THis is the new Model Groups ------> ' + grpModelList);
+        
+        List<QuoteLineModel> finalLineModelList = GroupCloneClass.AddQuoteLinesTOGroup(grpModelList, totalLineModels);
+        
+
+        quoteModel.lineItemGroups = grpModelList;
+        quoteModel.lineItems = finalLineModelList;
+        quoteModel.record.SBQQ__LineItemsGrouped__c = true;
+        
+       // System.debug('This is the final Quote Model for Updation ----> ' + quoteModel);
+     //        String validationResult = SBQQ.ServiceRouter.load('SBQQ.QuoteAPI.QuoteValidator', null, JSON.serialize(quoteModel));
+      //  System.debug('THis is the validation Result of Quote Model ----> ' + validationResult);
+        System.debug('THis is the Quote Model -------->    ' + quoteModel);
+
+        String savedQuoteModel = SBQQ.ServiceRouter.save('SBQQ.QuoteAPI.QuoteSaver', JSON.serialize(quoteModel));
+        SBQQ.TriggerControl.enable();
+       // System.debug('This is after quote Model Updation ----> ' + savedQuoteModel);
+        
+    }
+    
+    public static List<QuoteLineModel> AddQuoteLinesTOGroup(List<QuoteLineGroupModel> groupList,List<QuoteLineModel> qLineModelList)
+    {
+        List<QuoteLineModel> finalQuoteLineModelList = new List<QuoteLineModel>();
+        Integer finalIndex = 0;
+        Integer currentIndex = 0;
+        Integer grpIndex = 0;
+       while(finalIndex != qLineModelList.size()*groupList.size())
+       {
+           SBQQ__QuoteLine__c quoteLine= new SBQQ__QuoteLine__c();
+           quoteLine = qlineModelList[currentIndex].record;
+           
+           QuoteLineModel qLineModel = new QuoteLineModel();
+          
+           if(finalIndex >= qlineModelList.size())
+           {
+               qLineModel.record = quoteLine.clone(false,true,false,false);
+           }
+           else
+           {
+               qLineModel.record = quoteLine;
+           }
+           qLineModel.key = finalIndex+3;
+           qLineModel.parentGroupKey = groupList[grpIndex].key;
+           finalQuoteLineModelList.add(qLineModel);
+           if(currentIndex == qLineModelList.size()-1)
+           {
+               currentIndex = 0;
+               grpIndex++;
+           }
+           else
+           {
+                currentIndex++;
+           }
+           
+  
+           finalIndex++;
+           // Correct this Loop 
+           if(finalIndex == 8)
+           {
+               break;
+           }
+           
+       }
+        
+      //  System.debug('THis is the qutoeLine INsertion -------> ' + finalQuoteLineModelList);
+        return finalQuoteLineModelList;
+        
+    }
+    
+    
+    
+    public static QuoteModel getQuoteModel(String quoteId)
+    {
+        String quoteJSON = SBQQ.ServiceRouter.read('SBQQ.QuoteAPI.QuoteReader', quoteId);
+		 return (QuoteModel)JSON.deserialize(quoteJSON,QuoteModel.class);
+    }
+    
+    public static List<QuoteLineGroupModel> createQuoteLineGroups(String quoteId,Integer totalGroups)
+    {
+        List<QuoteLineGroupModel> finalGroupList = new List<QuoteLineGroupModel>();
+        for(Integer currentGroup = 0;currentGroup != totalGroups;  currentGroup++ )
+        {
+            SBQQ__QuoteLineGroup__c grp = new SBQQ__QuoteLineGroup__c();
+            grp.SBQQ__Number__c = currentGroup + 2;
+            
+            QuoteLineGroupModel grpModel = new QuoteLineGroupModel();
+            grpModel.record = grp;
+            grpModel.Key = currentGroup+2;
+            finalGroupList.add(grpModel);
+        }
+      //  System.debug('THis is the Create Grp Function ---> ' + finalGroupList);
+        return finalGroupList;
+    }
+}
